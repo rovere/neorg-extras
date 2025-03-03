@@ -299,14 +299,7 @@ module.public = {
 				for key, value in pairs(fields) do
 					if key == "started" or key == "deadline" or key == "completed" then
 						if value or not prop_table[key] then
-							vim.ui.input(
-								{ prompt = "Enter " .. key .. " date-time (YYYY-MM-DD|HH:MM): " },
-								function(input)
-									if input ~= "" then
-										prop_string[key] = input
-									end
-								end
-							)
+							prop_string[key] = vim.fn.input("Enter " .. key .. " date-time (YYYY-MM-DD|HH:MM): ")
 						else
 							local text = prop_table[key].year
 								.. "-"
@@ -317,49 +310,20 @@ module.public = {
 								.. prop_table[key].hour
 								.. ":"
 								.. prop_table[key].minute
-							vim.ui.input(
-								{ prompt = "Enter " .. key .. " date-time (YYYY-MM-DD|HH:MM): ", default = text },
-								function(input)
-									if input ~= "" then
-										prop_string[key] = input
-									end
-								end
-							)
+							prop_string[key] = vim.fn.input("Enter " .. key .. " date-time (YYYY-MM-DD|HH:MM): ", text)
 						end
 					elseif key == "tag" then
 						if value or not prop_table[key] then
-							vim.ui.input({ prompt = "Enter comma-separated tags (tag1, tag2, ...): " }, function(input)
-								if input ~= "" then
-									prop_string[key] = input
-								end
-							end)
+							prop_string[key] = vim.fn.input("Enter comma-separated tags (tag1, tag2, ...): ")
 						else
 							local tags = table.concat(prop_table[key], ", ")
-							vim.ui.input(
-								{ prompt = "Enter comma-separated tags (tag1, tag2, ...): ", default = tags },
-								function(input)
-									if input ~= "" then
-										prop_string[key] = input
-									end
-								end
-							)
+							prop_string[key] = vim.fn.input("Enter comma-separated tags (tag1, tag2, ...): ", tags)
 						end
 					else
 						if value or not prop_table[key] then
-							vim.ui.input({ prompt = "Enter priority (A/B/C/...): " }, function(input)
-								if input ~= "" then
-									prop_string[key] = input
-								end
-							end)
+							prop_string[key] = vim.fn.input("Enter priority (A/B/C/...): ")
 						else
-							vim.ui.input(
-								{ prompt = "Enter priority (A/B/C/...): ", default = prop_table[key] },
-								function(input)
-									if input ~= "" then
-										prop_string[key] = input
-									end
-								end
-							)
+							prop_string[key] = vim.fn.input("Enter priority (A/B/C/...): ", prop_table[key])
 						end
 					end
 				end
@@ -370,8 +334,11 @@ module.public = {
 
 		generate_property_metadata = function()
 			local prop_table = {}
-			local started = vim.fn.input("Enter started date-time (YYYY-MM-DD|HH:MM): ")
-			local deadline = vim.fn.input("Enter deadline date-time (YYYY-MM-DD|HH:MM): ")
+			local current_date = os.time()
+			local current_time = os.date("%Y-%m-%d|%H:%M") -- Get current date and hour
+			local future_time = os.date("%Y-%m-%d|%H:%M", current_date + (14 * 24 * 60 * 60)) -- Add 14 days
+			local started = vim.fn.input("Enter started date-time (YYYY-MM-DD|HH:MM): ", current_time)
+			local deadline = vim.fn.input("Enter deadline date-time (YYYY-MM-DD|HH:MM): ", future_time)
 			local completed = vim.fn.input("Enter completed date-time (YYYY-MM-DD|HH:MM): ")
 			local tag = vim.fn.input("Enter comma-separated tags (tag1, tag2, ...): ")
 			local priority = vim.fn.input("Enter priority (A/B/C/...): ")
@@ -419,12 +386,14 @@ module.public = {
 			vim.api.nvim_win_set_cursor(0, cursor_pos)
 			if value then
 				local prop_table = module.public["meta-man"].extract_property_metadata(full_path, heading_line)
+				--				vim.notify(vim.inspect(prop_table))
 				if inject_custom and type(inject_custom) == "table" then
 					for key, custom_value in pairs(inject_custom) do
 						prop_table[key] = custom_value
 					end
 				end
 				local prop_string = module.public["meta-man"].fetch_updated_property_metadata(prop_table)
+				--				vim.notify("prop_string" .. vim.inspect(prop_string))
 				module.public["meta-man"].delete_property_metadata(heading_line, bufnr)
 				module.public["meta-man"].push_new_property_metadata_string(heading_line, prop_string)
 			else
@@ -566,6 +535,12 @@ module.public = {
 			return vim.fn.systemlist(rg_command)
 		end,
 
+		find_mytasks_in_workspace = function(base_directory)
+			local rg_command = [[rg '^\s*-{1,8} \(\s*(-?)\s*x*\?*!*_*\+*=*\)' --glob '*.norg' --line-number ]]
+				.. base_directory
+			return vim.fn.systemlist(rg_command)
+		end,
+
 		parse_task_line = function(line)
 			local file, lnum, text = line:match("([^:]+):(%d+):(.*)")
 			local task_state = text:match("%((.)%)")
@@ -588,6 +563,7 @@ module.public = {
 				base_directory = module.required["core.dirman"].get_current_workspace()[2]
 			end
 			local lines = module.public["task-man"].find_tasks_in_workspace(base_directory)
+			-- lines = module.public["task-man"].find_mytasks_in_workspace(base_directory)
 
 			-- Filter and map tasks
 			local task_list = {}
@@ -600,6 +576,7 @@ module.public = {
 						lnum = lnum,
 						task = text,
 					}
+					-- vim.notify("Task: " .. task.task, vim.log.levels.INFO)
 					table.insert(task_list, module.public["task-man"].add_agenda_data(task))
 				end
 			end
@@ -990,7 +967,6 @@ module.public = {
 }
 
 module.on_event = function(event)
-	-- vim.notify(vim.inspect(event))
 	if event.split_type[2] == "external.many-mans.meta-man.update_property_metadata" then
 		module.public["meta-man"].update_property_metadata()
 	elseif event.split_type[2] == "external.many-mans.task-man.cycle_task" then
