@@ -569,7 +569,12 @@ module.public = {
 			local task_list = {}
 			for _, line in ipairs(lines) do
 				local file, lnum, text, task_state_symbol = module.public["task-man"].parse_task_line(line)
-				if not blacklisted_state_icons[task_state_symbol] and file and lnum and text then
+				if
+					(not blacklisted_state_icons[task_state_symbol] or input_list[1] == "all")
+					and file
+					and lnum
+					and text
+				then
 					local task = {
 						state = module.public["task-man"].symbol_to_icon_mapping[task_state_symbol],
 						filename = file,

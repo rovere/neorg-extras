@@ -35,6 +35,7 @@ module.load = function()
 							"cancelled",
 							"recurring",
 							"ambiguous",
+							"all",
 						},
 						{
 							"done",
@@ -311,7 +312,6 @@ module.public = {
 	---@param input_list table
 	page_view = function(input_list)
 		local task_list = module.required["external.many-mans"]["task-man"].filter_tasks(input_list)
-
 		-- Create and display agenda buffer
 		local buffer_lines = {}
 		local current_file = nil
@@ -600,7 +600,6 @@ module.public = {
 }
 
 module.on_event = function(event)
-	-- vim.notify(vim.inspect(event))
 	if event.split_type[2] == "external.agenda.page" then
 		module.public.page_view(event.content)
 	elseif event.split_type[2] == "external.agenda.day" then
